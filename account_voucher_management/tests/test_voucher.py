@@ -146,7 +146,7 @@ class TestVoucher(TransactionCase):
         )
 
         journal_voucher = self.env["account.voucher"].create({
-            "voucher_type": "journal",
+            "voucher_type": "journal", "entry_journal_id": self.general.id,
             "line_ids": [Command.create({"account_id": self.expense.id, "name": "Debit", "debit": 50}),
                          Command.create({"account_id": self.payable.id, "name": "Credit", "credit": 50})],
         })
