@@ -3,6 +3,7 @@
     "version": "18.0.1.6.0",
     "category": "Accounting/Accounting",
     "summary": "Receipt, payment, contra, expense and journal vouchers",
+    "author": "Saiful Islam Shawon",
     "license": "LGPL-3",
     "depends": ["account", "mail"],
     "data": [
