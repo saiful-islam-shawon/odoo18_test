@@ -126,7 +126,7 @@ class TestVoucher(TransactionCase):
     def test_hidden_journal_fields_are_defaulted(self):
         receipt = self.env["account.voucher"].create({
             "voucher_type": "receipt", "partner_id": self.customer.id,
-            "debit_account_id": self.bank.id, "credit_account_id": self.receivable.id,
+            "credit_account_id": self.receivable.id,
             "amount_total": 100,
         })
         self.assertIn(receipt.journal_id.type, ("bank", "cash"))
@@ -163,7 +163,11 @@ class TestVoucher(TransactionCase):
 
     def test_contra_and_expense_validation(self):
         other = self.env["account.journal"].create({"name": "Voucher Cash", "code": "VCS", "type": "cash", "company_id": self.company.id, "default_account_id": self.bank.id})
-        contra = self._simple("contra", partner_id=False, journal_id=False, source_journal_id=self.journal.id, destination_journal_id=other.id)
+        contra = self._simple(
+            "contra", partner_id=False, journal_id=False,
+            source_journal_id=self.journal.id, destination_journal_id=other.id,
+            debit_account_id=False, credit_account_id=False,
+        )
         self.assertTrue(contra.voucher_number.startswith("CV-"))
         with self.assertRaises(ValidationError):
             self._simple("contra", partner_id=False, journal_id=False, source_journal_id=self.journal.id, destination_journal_id=self.journal.id)
