@@ -1,6 +1,6 @@
 {
     "name": "Custom Voucher Management",
-    "version": "18.0.1.6.0",
+    "version": "18.0.1.8.0",
     "category": "Accounting/Accounting",
     "summary": "Receipt, payment, contra, expense and journal vouchers",
     "author": "Saiful Islam Shawon",

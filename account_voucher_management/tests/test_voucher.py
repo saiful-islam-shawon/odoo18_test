@@ -85,7 +85,7 @@ class TestVoucher(TransactionCase):
         voucher = self._simple()
         invoice = voucher.invoice_id
         self.assertTrue(voucher.voucher_number.startswith("RV-"))
-        voucher.action_submit(); voucher.action_waiting(); voucher.action_approve(); voucher.action_post()
+        voucher.action_post()
         self.assertEqual(voucher.accounting_move_id.state, "posted")
         self.assertEqual(invoice.payment_state, "paid")
         self.assertTrue(invoice.currency_id.is_zero(invoice.amount_residual))
@@ -100,10 +100,20 @@ class TestVoucher(TransactionCase):
         with self.assertRaises(UserError):
             voucher.unlink()
 
+    def test_receipt_uses_direct_draft_to_posted_workflow(self):
+        voucher = self._simple()
+        self.assertEqual(voucher.state, "draft")
+        with self.assertRaises(UserError):
+            voucher.action_submit()
+        with self.assertRaises(UserError):
+            voucher.action_cancel()
+        voucher.action_post()
+        self.assertEqual(voucher.state, "posted")
+
     def test_receipt_reversal_reopens_invoice(self):
         voucher = self._simple()
         invoice = voucher.invoice_id
-        voucher.action_submit(); voucher.action_waiting(); voucher.action_approve(); voucher.action_post()
+        voucher.action_post()
         self.assertEqual(invoice.payment_state, "paid")
 
         voucher.action_reverse()
@@ -178,7 +188,7 @@ class TestVoucher(TransactionCase):
         voucher = self.env["account.voucher"].create({"voucher_type": "journal", "entry_journal_id": self.general.id,
             "line_ids": [Command.create({"account_id": self.expense.id, "name": "Debit", "debit": 50}),
                          Command.create({"account_id": self.payable.id, "name": "Credit", "credit": 50})]})
-        voucher.action_submit(); voucher.action_waiting(); voucher.action_approve(); voucher.action_post(); voucher.action_reverse()
+        voucher.action_post(); voucher.action_reverse()
         self.assertTrue(all(voucher.accounting_move_id.line_ids.mapped("currency_id")))
         self.assertEqual(voucher.reversal_move_id.state, "posted")
         html, _ = self.env["ir.actions.report"]._render_qweb_html("account_voucher_management.action_report_journal_voucher", voucher.ids)
@@ -190,7 +200,7 @@ class TestVoucher(TransactionCase):
             cheque_bank_id=self.cheque_bank.id, cheque_payee="Voucher Customer",
         )
         self.assertEqual(cheque.cheque_number, "CHQ-1001")
-        cheque.action_submit(); cheque.action_waiting(); cheque.action_approve(); cheque.action_post()
+        cheque.action_post()
         self.assertEqual(cheque.cheque_status, "received")
         cheque.action_cheque_deposit()
         self.assertEqual(cheque.cheque_status, "deposited")
@@ -211,7 +221,7 @@ class TestVoucher(TransactionCase):
         # Partner Ledger balance is debit - credit in company currency.
         self.assertEqual(voucher.outstanding_balance, 200)
 
-        voucher.action_submit(); voucher.action_waiting(); voucher.action_approve(); voucher.action_post()
+        voucher.action_post()
 
         self.assertFalse(voucher.invoice_id)
         self.assertEqual(invoice.payment_state, "not_paid")
@@ -236,14 +246,14 @@ class TestVoucher(TransactionCase):
             credit_account_id=self.income.id,
         )
         with self.assertRaises(ValidationError):
-            voucher.action_submit()
+            voucher.action_post()
         self.assertEqual(voucher.state, "draft")
 
     def test_receipt_partial_payment_is_allowed_and_invoice_stays_partial(self):
         invoice = self._make_invoice(amount=100)
         voucher = self._simple(invoice_id=invoice.id, amount_total=60)
 
-        voucher.action_submit(); voucher.action_waiting(); voucher.action_approve(); voucher.action_post()
+        voucher.action_post()
 
         self.assertEqual(invoice.payment_state, "partial")
         self.assertEqual(invoice.amount_residual, 40)
@@ -257,7 +267,7 @@ class TestVoucher(TransactionCase):
         voucher = self._simple(invoice_id=invoice.id, amount_total=110)
 
         with self.assertRaises(ValidationError):
-            voucher.action_submit()
+            voucher.action_post()
 
         self.assertEqual(voucher.state, "draft")
         self.assertEqual(invoice.payment_state, "not_paid")
@@ -301,7 +311,7 @@ class TestVoucher(TransactionCase):
         self.assertEqual(invoice.amount_residual, 60)
 
         voucher = self._simple(invoice_id=invoice.id, amount_total=60)
-        voucher.action_submit(); voucher.action_waiting(); voucher.action_approve(); voucher.action_post()
+        voucher.action_post()
 
         self.assertEqual(invoice.payment_state, "paid")
         self.assertTrue(invoice.currency_id.is_zero(invoice.amount_residual))
@@ -309,9 +319,8 @@ class TestVoucher(TransactionCase):
     def test_receipt_overpayment_is_rechecked_on_post(self):
         invoice = self._make_invoice(amount=100)
         voucher = self._simple(invoice_id=invoice.id, amount_total=80)
-        voucher.action_submit(); voucher.action_waiting(); voucher.action_approve()
 
-        # Another receipt reduces the invoice residual after this voucher was approved.
+        # Another receipt reduces the invoice residual before this draft voucher is posted.
         other_move = self.env["account.move"].create({
             "move_type": "entry",
             "journal_id": self.general.id,
@@ -348,7 +357,7 @@ class TestVoucher(TransactionCase):
         with self.assertRaises(ValidationError):
             voucher.action_post()
 
-        self.assertEqual(voucher.state, "approved")
+        self.assertEqual(voucher.state, "draft")
         self.assertFalse(voucher.accounting_move_id)
 
 
@@ -363,7 +372,7 @@ class TestVoucher(TransactionCase):
             amount_total=100,
         )
 
-        voucher.action_submit(); voucher.action_waiting(); voucher.action_approve(); voucher.action_post()
+        voucher.action_post()
 
         self.assertEqual(bill.payment_state, "paid")
         self.assertTrue(bill.currency_id.is_zero(bill.amount_residual))
@@ -387,7 +396,7 @@ class TestVoucher(TransactionCase):
             amount_total=60,
         )
 
-        voucher.action_submit(); voucher.action_waiting(); voucher.action_approve(); voucher.action_post()
+        voucher.action_post()
 
         self.assertEqual(bill.payment_state, "partial")
         self.assertEqual(bill.amount_residual, 40)
@@ -404,7 +413,7 @@ class TestVoucher(TransactionCase):
         )
 
         with self.assertRaises(ValidationError):
-            voucher.action_submit()
+            voucher.action_post()
 
         self.assertEqual(voucher.state, "draft")
         self.assertEqual(bill.payment_state, "not_paid")
@@ -425,7 +434,7 @@ class TestVoucher(TransactionCase):
         # balance (debit - credit) is negative.
         self.assertEqual(voucher.outstanding_balance, -100)
 
-        voucher.action_submit(); voucher.action_waiting(); voucher.action_approve(); voucher.action_post()
+        voucher.action_post()
 
         # The unallocated payment debits Accounts Payable by 40, therefore the
         # vendor's Partner Ledger balance becomes -60.
@@ -443,7 +452,7 @@ class TestVoucher(TransactionCase):
             amount_total=75,
         )
 
-        voucher.action_submit(); voucher.action_waiting(); voucher.action_approve(); voucher.action_post()
+        voucher.action_post()
 
         self.assertFalse(voucher.invoice_id)
         payable_line = voucher.accounting_move_id.line_ids.filtered(
@@ -466,7 +475,7 @@ class TestVoucher(TransactionCase):
         )
 
         with self.assertRaises(ValidationError):
-            voucher.action_submit()
+            voucher.action_post()
 
         self.assertEqual(voucher.state, "draft")
 
@@ -480,7 +489,7 @@ class TestVoucher(TransactionCase):
             credit_account_id=self.bank.id,
             amount_total=80,
         )
-        voucher.action_submit(); voucher.action_waiting(); voucher.action_approve()
+        # Direct Draft -> Posted workflow; keep draft until posting
 
         # Another vendor payment reduces the bill residual after approval.
         other_move = self.env["account.move"].create({
@@ -519,7 +528,7 @@ class TestVoucher(TransactionCase):
         with self.assertRaises(ValidationError):
             voucher.action_post()
 
-        self.assertEqual(voucher.state, "approved")
+        self.assertEqual(voucher.state, "draft")
         self.assertFalse(voucher.accounting_move_id)
 
     def test_payment_reversal_reopens_vendor_bill(self):
@@ -532,7 +541,7 @@ class TestVoucher(TransactionCase):
             credit_account_id=self.bank.id,
             amount_total=100,
         )
-        voucher.action_submit(); voucher.action_waiting(); voucher.action_approve(); voucher.action_post()
+        voucher.action_post()
         self.assertEqual(bill.payment_state, "paid")
 
         voucher.action_reverse()
@@ -541,15 +550,17 @@ class TestVoucher(TransactionCase):
         self.assertEqual(bill.amount_residual, 100)
 
     def test_manager_can_cancel_approved_unposted_voucher(self):
-        voucher = self._simple()
-        voucher.action_submit(); voucher.action_waiting(); voucher.action_approve()
+        voucher = self._simple(
+            "payment", partner_id=self.vendor.id, debit_account_id=self.payable.id,
+            credit_account_id=self.bank.id, invoice_id=False,
+        )
+        with self.assertRaises(UserError):
+            voucher.action_cancel()
 
-        voucher.action_cancel()
-
-        self.assertEqual(voucher.state, "cancelled")
+        self.assertEqual(voucher.state, "draft")
         self.assertFalse(voucher.accounting_move_id)
 
-    def test_submitted_voucher_details_and_lines_are_locked(self):
+    def test_posted_voucher_details_and_lines_are_locked(self):
         voucher = self.env["account.voucher"].create({
             "voucher_type": "journal",
             "entry_journal_id": self.general.id,
@@ -558,7 +569,7 @@ class TestVoucher(TransactionCase):
                 Command.create({"account_id": self.payable.id, "name": "Credit", "credit": 50}),
             ],
         })
-        voucher.action_submit()
+        voucher.action_post()
 
         with self.assertRaises(UserError):
             voucher.write({"narration": "Changed after submit"})
@@ -575,7 +586,7 @@ class TestVoucher(TransactionCase):
             cheque_bank_id=self.cheque_bank.id,
         )
         invoice = voucher.invoice_id
-        voucher.action_submit(); voucher.action_waiting(); voucher.action_approve(); voucher.action_post()
+        voucher.action_post()
         self.assertEqual(invoice.payment_state, "paid")
 
         voucher.cheque_bounce_reason = "Insufficient funds"

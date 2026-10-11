@@ -8,7 +8,7 @@ Add this repository and Odoo Enterprise to `addons_path`, update the Apps list, 
 
 ## Workflow
 
-Draft → Submitted → Waiting for Approval → Approved → Posted. Approvers can reject a submitted/waiting voucher to Draft when a rejection reason is entered. Managers can cancel any unposted voucher. Voucher accounting details and journal lines are editable only in Draft. Posted vouchers are immutable and undeletable; Reverse creates and posts a standard linked reversing journal entry.
+All voucher types use the simplified workflow Draft → Posted. New vouchers start in Draft and are posted directly with the Post button. Voucher accounting details and journal lines are editable only in Draft; posted vouchers are immutable and undeletable. The legacy approval/cancel workflow is not exposed in the voucher form. Cheque lifecycle actions continue to use their existing logic.
 
 ## Voucher registers
 
@@ -44,4 +44,4 @@ Tests cover register actions, account relations, partner classifications includi
 
 ## Odoo 18 compatibility audit
 
-Version `18.0.1.6.0` uses Odoo 18 `res.groups.category_id`, Odoo 18 shared `account.account.company_ids`, Odoo 18 list/expression view syntax, and the Odoo 18 `account.move._reverse_moves(default_values_list, cancel=True)` API. XML files and Python sources are statically validated before packaging. A final installation/runtime test must still be run on the target Odoo 18 database because chart-of-accounts, journal controls, localization modules, currencies, and other installed custom modules can affect runtime behavior.
+Version `18.0.1.8.0` uses Odoo 18 `res.groups.category_id`, Odoo 18 shared `account.account.company_ids`, Odoo 18 list/expression view syntax, and the Odoo 18 `account.move._reverse_moves(default_values_list, cancel=True)` API. XML files and Python sources are statically validated before packaging. A final installation/runtime test must still be run on the target Odoo 18 database because chart-of-accounts, journal controls, localization modules, currencies, and other installed custom modules can affect runtime behavior.

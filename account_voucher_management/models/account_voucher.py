@@ -554,48 +554,19 @@ class AccountVoucher(models.Model):
             raise ValidationError(_("The payment amount could not be fully reconciled with the selected vendor bill."))
 
     def action_submit(self):
-        for voucher in self.filtered(lambda v: v.state == "draft"):
-            voucher._check_voucher()
-            voucher._check_receipt_invoice()
-            voucher._check_payment_bill()
-            voucher._workflow_write({"state": "submitted"})
-            voucher.message_post(body=_("Voucher submitted."))
-        return True
+        raise UserError(_("Vouchers are posted directly from Draft."))
 
     def action_waiting(self):
-        self.filtered(lambda v: v.state == "submitted")._workflow_write({"state": "waiting"})
-        return True
+        raise UserError(_("Vouchers do not use the approval workflow."))
 
     def action_approve(self):
-        if not self.env.su and not self.env.user.has_group("account_voucher_management.group_voucher_approver"):
-            raise AccessError(_("Only voucher approvers may approve vouchers."))
-        if any(v.state != "waiting" for v in self):
-            raise UserError(_("Only vouchers waiting for approval can be approved."))
-        self._workflow_write({
-            "state": "approved", "approved_by": self.env.user.id, "approval_date": fields.Datetime.now()})
-        self.message_post(body=_("Voucher approved."))
-        return True
+        raise UserError(_("Vouchers do not use the approval workflow."))
 
     def action_reject(self):
-        if not self.env.su and not self.env.user.has_group("account_voucher_management.group_voucher_approver"):
-            raise AccessError(_("Only voucher approvers may reject vouchers."))
-        for v in self:
-            if v.state not in ("submitted", "waiting") or not v.rejection_reason:
-                raise UserError(_("Enter a rejection reason before rejecting a submitted voucher."))
-            v._workflow_write({"state": "draft", "rejected_by": self.env.user.id, "rejection_date": fields.Datetime.now()})
-            v.message_post(body=_("Voucher rejected: %s", v.rejection_reason))
-        return True
+        raise UserError(_("Vouchers do not use the approval workflow."))
 
     def action_cancel(self):
-        self._check_manager()
-        for v in self:
-            if v.state in ("posted", "cancelled"):
-                raise UserError(_("Only unposted, non-cancelled vouchers can be cancelled."))
-            v._workflow_write({"state": "cancelled"})
-            if v.payment_mode == "cheque" and v.cheque_status != "cleared":
-                v.cheque_status = "cancelled"
-            v.message_post(body=_("Voucher cancelled."))
-        return True
+        raise UserError(_("Vouchers cannot be cancelled through the approval workflow."))
 
     def _move_lines(self):
         self.ensure_one()
@@ -620,8 +591,8 @@ class AccountVoucher(models.Model):
                 if v.state == "posted":
                     continue
                 raise UserError(_("An accounting entry already exists for this voucher."))
-            if v.state != "approved":
-                raise UserError(_("Only approved vouchers can be posted."))
+            if v.state != "draft":
+                raise UserError(_("Only draft vouchers can be posted."))
             v._check_voucher()
             v._check_receipt_invoice()
             v._check_payment_bill()
